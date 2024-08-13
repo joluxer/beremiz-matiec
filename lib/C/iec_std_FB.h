@@ -553,19 +553,12 @@ typedef struct {
 
 
 
-
-
-
-
-
-
-
 static void R_TRIG_init__(R_TRIG *data__, BOOL retain) {
   __INIT_VAR(data__->EN,__BOOL_LITERAL(TRUE),retain)
   __INIT_VAR(data__->ENO,__BOOL_LITERAL(TRUE),retain)
   __INIT_VAR(data__->CLK,__BOOL_LITERAL(FALSE),retain)
   __INIT_VAR(data__->Q,__BOOL_LITERAL(FALSE),retain)
-  __INIT_VAR(data__->M,__BOOL_LITERAL(FALSE),retain)
+  __INIT_VAR(data__->M,__BOOL_LITERAL(FALSE),1)
 }
 
 // Code part
@@ -598,7 +591,7 @@ static void F_TRIG_init__(F_TRIG *data__, BOOL retain) {
   __INIT_VAR(data__->ENO,__BOOL_LITERAL(TRUE),retain)
   __INIT_VAR(data__->CLK,__BOOL_LITERAL(FALSE),retain)
   __INIT_VAR(data__->Q,__BOOL_LITERAL(FALSE),retain)
-  __INIT_VAR(data__->M,__BOOL_LITERAL(FALSE),retain)
+  __INIT_VAR(data__->M,__BOOL_LITERAL(TRUE),retain)
 }
 
 // Code part
@@ -1896,10 +1889,13 @@ __end:
 } // SEMA_body__() 
 
 
+#include "arduino_lib_FB.h"
+#include "p1am_FB.h"
+#include "communication.h"
+#include "can.h"
 
-
-
-
-
-
+#include "MQTT.h"
+#include "sm_cards.h"
+#include "jaguar.h"
+#include "SL-RP4.h"
 #endif //_IEC_STD_FB_H

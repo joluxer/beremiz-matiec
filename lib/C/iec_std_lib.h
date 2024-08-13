@@ -35,12 +35,15 @@
 #include <math.h>
 #include <stdint.h>
 #include <ctype.h>
-#include <time.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+
+#ifdef __APPLE__
+#include <time.h>
+#endif
 
 #ifdef DEBUG_IEC
 #define DBG(...) printf(__VA_ARGS__);
@@ -236,10 +239,10 @@ static inline IEC_TIMESPEC __time_to_timespec(int sign, double mseconds, double 
  */
 #define __time_to_timespec(sign,mseconds,seconds,minutes,hours,days) \
           ((IEC_TIMESPEC){\
-              /*tv_sec  =*/ ((long int)   (((sign>=0)?1:-1)*((((long double)days*24 + (long double)hours)*60 + (long double)minutes)*60 + (long double)seconds + (long double)mseconds/1e3))), \
-              /*tv_nsec =*/ ((long int)(( \
+              /*tv_sec  =*/ ((int32_t)   (((sign>=0)?1:-1)*((((long double)days*24 + (long double)hours)*60 + (long double)minutes)*60 + (long double)seconds + (long double)mseconds/1e3))), \
+              /*tv_nsec =*/ ((int32_t)(( \
                             ((long double)(((sign>=0)?1:-1)*((((long double)days*24 + (long double)hours)*60 + (long double)minutes)*60 + (long double)seconds + (long double)mseconds/1e3))) - \
-                            ((long int)   (((sign>=0)?1:-1)*((((long double)days*24 + (long double)hours)*60 + (long double)minutes)*60 + (long double)seconds + (long double)mseconds/1e3)))   \
+                            ((int32_t)   (((sign>=0)?1:-1)*((((long double)days*24 + (long double)hours)*60 + (long double)minutes)*60 + (long double)seconds + (long double)mseconds/1e3)))   \
                             )*1e9))\
         })
 
@@ -261,10 +264,10 @@ static inline IEC_TIMESPEC __tod_to_timespec(double seconds, double minutes, dou
 */
 #define __tod_to_timespec(seconds,minutes,hours) \
           ((IEC_TIMESPEC){\
-              /*tv_sec  =*/ ((long int)   ((((long double)hours)*60 + (long double)minutes)*60 + (long double)seconds)), \
-              /*tv_nsec =*/ ((long int)(( \
+              /*tv_sec  =*/ ((int32_t)   ((((long double)hours)*60 + (long double)minutes)*60 + (long double)seconds)), \
+              /*tv_nsec =*/ ((int32_t)(( \
                             ((long double)((((long double)hours)*60 + (long double)minutes)*60 + (long double)seconds)) - \
-                            ((long int)   ((((long double)hours)*60 + (long double)minutes)*60 + (long double)seconds))   \
+                            ((int32_t)   ((((long double)hours)*60 + (long double)minutes)*60 + (long double)seconds))   \
                             )*1e9))\
         })
 
@@ -319,7 +322,7 @@ static inline tm convert_seconds_to_date_and_time(long int seconds) {
 	  days += __isleap(dt.tm_year) ? 366 : 365;
   }
   dt.tm_mon = 1;
-  while (days >= __mon_yday[__isleap(dt.tm_year)][dt.tm_mon]) {
+  while (days > __mon_yday[__isleap(dt.tm_year)][dt.tm_mon]) {
 	  dt.tm_mon += 1;
   }
   dt.tm_day = days - __mon_yday[__isleap(dt.tm_year)][dt.tm_mon - 1] + 1;
@@ -470,10 +473,7 @@ static inline LINT __pstring_to_sint(STRING* IN) {
     __strlen_t l;
     unsigned int shift = 0;
 
-    if(IN->len < 1){
-        /* empty string */
-        return 0;
-    }else if(IN->len > 1 && IN->body[0]=='2' && IN->body[1]=='#'){
+    if(IN->body[0]=='2' && IN->body[1]=='#'){
         /* 2#0101_1010_1011_1111 */
         for(l = IN->len - 1; l >= 2 && shift < 64; l--)
         {
@@ -483,7 +483,7 @@ static inline LINT __pstring_to_sint(STRING* IN) {
                 shift += 1;
             }
         }
-    }else if(IN->len > 1 && IN->body[0]=='8' && IN->body[1]=='#'){
+    }else if(IN->body[0]=='8' && IN->body[1]=='#'){
         /* 8#1234_5665_4321 */
         for(l = IN->len - 1; l >= 2 && shift < 64; l--)
         {
@@ -493,7 +493,7 @@ static inline LINT __pstring_to_sint(STRING* IN) {
                 shift += 3;
             }
         }
-    }else if(IN->len > 2 && IN->body[0]=='1' && IN->body[1]=='6' && IN->body[2]=='#'){
+    }else if(IN->body[0]=='1' && IN->body[1]=='6' && IN->body[2]=='#'){
         /* 16#1234_5678_9abc_DEFG */
         for(l = IN->len - 1; l >= 3 && shift < 64; l--)
         {
@@ -512,9 +512,9 @@ static inline LINT __pstring_to_sint(STRING* IN) {
     }else{
         /* -123456789 */
         LINT fac = IN->body[0] == '-' ? -1 : 1;
-        for(l = IN->len; l > 0 && shift < 20; l--)
+        for(l = IN->len - 1; l >= 0 && shift < 20; l--)
         {
-            char c = IN->body[l-1];
+            char c = IN->body[l];
             if( c >= '0' && c <= '9'){
                 res += ( c - '0') * fac;
                 fac *= 10;
@@ -536,7 +536,7 @@ static inline LREAL __string_to_real(STRING IN) {
     __strlen_t l;
     l = IN.len;
     /* search the dot */
-    while(l > 0 && IN.body[--l] != '.');
+    while(--l > 0 && IN.body[l] != '.');
     if(l != 0){
         return atof((const char *)&IN.body);
     }else{
@@ -574,7 +574,7 @@ static inline TIME __string_to_time(STRING IN){
     /* Quick hack : only transform seconds */
     /* search the dot */
     l = IN.len;
-    while(l > 0 && IN.body[--l] != '.');
+    while(--l > 0 && IN.body[l] != '.');
     if(l != 0){
         LREAL IN_val = atof((const char *)&IN.body);
         return  (TIME){(long)IN_val, (long)(IN_val - (LINT)IN_val)*1000000000};
